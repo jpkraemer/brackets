@@ -30,11 +30,8 @@ define(function (require, exports, module) {
     MarkdownInlineDocumentation.prototype._end = -1; 
 
     MarkdownInlineDocumentation.prototype.load = function (hostEditor) {
-    this.parentClass.load.call(this, hostEditor);
+        this.parentClass.load.call(this, hostEditor);
         
-        // Container to hold all editors
-        var self = this;
-
         // Bind event handlers
         // this._updateRelatedContainer = this._updateRelatedContainer.bind(this);
         this._ensureCursorVisible = this._ensureCursorVisible.bind(this);
@@ -137,64 +134,6 @@ define(function (require, exports, module) {
         // this._updateRelatedContainer();
     };
 
-
-	/** 
-	 * Method to test if a line is a comment
-	 * @param {Number} line
-	 * @return {boolean} True if the line is a comment
-	 */
-	function _isCommentLine(hostEditor, line) {
-        var eol = hostEditor._codeMirror.getLine(line).length;
-        var token = hostEditor._codeMirror.getTokenAt({line:line, ch: eol});
-        return (token.className == "comment");
-    }
-
-	/**
-     * This function is registered with EditManager as an inline editor provider. It creates a 
-     * MarkdownInlineDocumentationEditor when cursor is on an comment written in markdown.
-     * This is then shown in the editor
-     *
-     * @param {!Editor} editor
-     * @param {!{line:Number, ch:Number}} pos
-     * @return {$.Promise} a promise that will be resolved with an InlineWidget
-     *      or null if we're not going to provide anything.
-     */
-    function markdownProvider(hostEditor, pos) {
-	    // Only provide a markdown editor when cursor is in JS content
-	    if (hostEditor._codeMirror.getOption("mode") !== "javascript") {
-	        return null;
-	    }
-
-	    // Only provide markdown editor when cursor is in comment
-	    if (! _isCommentLine(hostEditor, pos.line)) {
-	        return null;
-	    }
-	    
-	    //search for start of comment block 
-	    var start = pos.line; 
-	    do
-	    {
-	    	start--; 
-	    }
-	    while ((start > 0) && (_isCommentLine(hostEditor, start))); 
-
-	    //search for end of comment block
-	    var end = pos.line; 
-	    do
-	    {
-	    	end++; 
-	    }
-	    while ((end < hostEditor._codeMirror.lineCount()) && (_isCommentLine(hostEditor, end)));
-
-		var result = $.Deferred(); 
-		var inlineEditor = new MarkdownInlineDocumentation(start+1, end-1); 
-		inlineEditor.load(hostEditor);
-		result.resolve (inlineEditor); 
-		return result.promise();
-    }
-	
-	EditorManager.registerInlineEditProvider(markdownProvider);
-
-	exports.MarkdownInlineDocumentation = MarkdownInlineDocumentation;
+	module.exports = MarkdownInlineDocumentation;
 
 }); 
