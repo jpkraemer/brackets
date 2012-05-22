@@ -94,16 +94,12 @@ define(function (require, exports, module) {
     MarkdownInlineDocumentation.prototype._ensureCursorVisible = function () {
         if ($.contains(this.editors[0].getRootElement(), document.activeElement)) {
             var cursorCoords = this.editors[0]._codeMirror.cursorCoords(),
-                lineSpaceOffset = $(this.editors[0]._getLineSpaceElement()).offset(),
-                ruleListOffset = this.$relatedContainer.offset();
+                lineSpaceOffset = $(this.editors[0]._getLineSpaceElement()).offset();
             // If we're off the left-hand side, we just want to scroll it into view normally. But
             // if we're underneath the rule list on the right, we want to ask the host editor to 
             // scroll far enough that the current cursor position is visible to the left of the rule 
             // list. (Because we always add extra padding for the rule list, this is always possible.)
-            if (cursorCoords.x >= ruleListOffset.left) {
-                cursorCoords.x += this.$relatedContainer.outerWidth();
-            }
-
+            
             // Vertically, we want to set the scroll position relative to the overall host editor, not
             // the lineSpace of the widget itself. Also, we can't use the lineSpace here, because its top
             // position just corresponds to whatever CodeMirror happens to have rendered at the top. So

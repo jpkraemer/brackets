@@ -90,7 +90,7 @@ define(function (require, exports, module) {
     /**
      * This function iterates through all comment blocks in the given document
      * and calls the callback for each comment block. 
-     * @param document 
+     * @param hostEditor 
      * @param callback Gets 3 arguments: The editor, the start, and the end line of the block. 
      */
     function _eachCommentInEditor (hostEditor, callback) {
@@ -133,21 +133,9 @@ define(function (require, exports, module) {
 
     		_hideLinesInEditor(hostEditor, start, end); 
 
-    		var sourceString = ''; 
-    		for (var i = start; i<= end; i++) {
-    			sourceString += hostEditor.getLineText(i) + "\n"; 
-    		}
-    		sourceString = sourceString.replace(/^\s*\/\*\*/, '');
-    		sourceString = sourceString.replace(/\*\/.*/, '');
-
-			console.log("Render Markdown at (" + start + "," + end + "): " + sourceString);
-
-			if (start > 0) start--;
-			else start = end + 1;
-
-    		var inlineMarkdownViewer = new InlineMarkdownViewer(sourceString); 
+    		var inlineMarkdownViewer = new InlineMarkdownViewer(start, end); 
     		inlineMarkdownViewer.load(hostEditor);
-    		hostEditor.addInlineWidget({line: start, ch:0}, inlineMarkdownViewer); 
+    		hostEditor.addInlineWidget({line: (start > 0) ? start -1 : end + 1, ch:0}, inlineMarkdownViewer); 
     	});
     }
 
