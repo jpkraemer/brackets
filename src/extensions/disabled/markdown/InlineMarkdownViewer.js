@@ -23,26 +23,22 @@ define(function (require, exports, module) {
      * @constructor
      * @extends InlineWidget
      */
-    function InlineMarkdownViewer(startLine, endLine) {
+    function InlineMarkdownViewer() {
         InlineWidget.call(this);
-
-        this._startLine = startLine;
-        this._endLine   = endLine;
     }
     InlineMarkdownViewer.prototype = new InlineWidget();
-    InlineMarkdownViewer.prototype.constructor  = InlineMarkdownViewer;
-    InlineMarkdownViewer.prototype.parentClass  = InlineWidget.prototype;
+    InlineMarkdownViewer.prototype.constructor                  = InlineMarkdownViewer;
+    InlineMarkdownViewer.prototype.parentClass                  = InlineWidget.prototype;   
 
-    InlineMarkdownViewer.prototype.$contentDiv  = null;
+    InlineMarkdownViewer.prototype.$contentDiv                  = null;
 
-    InlineMarkdownViewer.prototype._startLine   = -1; 
-    InlineMarkdownViewer.prototype._endLine     = -1; 
+    InlineMarkdownViewer.prototype._visibleRange                = null;
 
-    InlineMarkdownViewer.prototype.markdownInlineDocumentation = null;
+    InlineMarkdownViewer.prototype.markdownInlineDocumentation  = null;
 
     InlineMarkdownViewer.prototype._renderMarkdown = function () {
         var sourceString = ''; 
-        for (var i = this._startLine; i<= this._endLine; i++) {
+        for (var i = this._visibleRange.startLine; i<= this._visibleRange.endLine; i++) {
             sourceString += this.hostEditor.getLineText(i) + "\n"; 
         }
         sourceString = sourceString.replace(/^\s*\/\*\*/, '');
@@ -53,8 +49,11 @@ define(function (require, exports, module) {
         this.$contentDiv.append(html);
     };
 
-    InlineMarkdownViewer.prototype.load = function (hostEditor) {
+    InlineMarkdownViewer.prototype.load = function (hostEditor, startLine, endLine) {
         this.parentClass.load.call(this, hostEditor);
+
+        //observe the range changes 
+        this._visibleRange = new TextRange (hostEditor.document, startLine, endLine);
 
         // Create DOM to hold editors and related list
         this.$contentDiv = $(document.createElement('div')).addClass("inlineMarkdownCommentHolder");
@@ -86,6 +85,8 @@ define(function (require, exports, module) {
      */
     InlineMarkdownViewer.prototype.onClosed = function () {
         this.parentClass.onClosed.call(this); // super.onClosed()
+
+        this._visibleRange.dispose();
 
         // unregister observers
         this.$htmlContent.off("click", this._onClick.bind(this)); 
@@ -125,9 +126,9 @@ define(function (require, exports, module) {
             this.markdownInlineDocumentation = null;
         }
         else {
-            this.markdownInlineDocumentation = new MarkdownInlineDocumentation(this._startLine, this._endLine); 
+            this.markdownInlineDocumentation = new MarkdownInlineDocumentation(this._visibleRange.startLine, this._visibleRange.endLine); 
             this.markdownInlineDocumentation.load(this.hostEditor);
-            this.hostEditor.addInlineWidget({line: this._endLine-1, ch:0}, this.markdownInlineDocumentation); 
+            this.hostEditor.addInlineWidget({line: this._visibleRange.endLine-1, ch:0}, this.markdownInlineDocumentation); 
         }
      }
 
@@ -139,8 +140,8 @@ define(function (require, exports, module) {
         // check all changes if they concern the comment we display
         var currentChange = changeList; 
         do {
-            if ((this._startLine >= changeList.from.line && changeList.to.line >= this._startLine) 
-                || (changeList.from.line >= this._startLine && changeList.from.line <= this._endLine)) {
+            if ((this._visibleRange.startLine >= changeList.from.line && changeList.to.line >= this._visibleRange.startLine) 
+                || (changeList.from.line >= this._visibleRange.startLine && changeList.from.line <= this._visibleRange.endLine)) {
                 
                 // we need to update the rendered markdown 
                 this._renderMarkdown(); 

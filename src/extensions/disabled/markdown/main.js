@@ -133,8 +133,8 @@ define(function (require, exports, module) {
 
     		_hideLinesInEditor(hostEditor, start, end); 
 
-    		var inlineMarkdownViewer = new InlineMarkdownViewer(start, end); 
-    		inlineMarkdownViewer.load(hostEditor);
+    		var inlineMarkdownViewer = new InlineMarkdownViewer(); 
+    		inlineMarkdownViewer.load(hostEditor, start, end);
     		hostEditor.addInlineWidget({line: (start > 0) ? start -1 : end + 1, ch:0}, inlineMarkdownViewer); 
     	});
     }
