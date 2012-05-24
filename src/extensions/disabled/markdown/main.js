@@ -115,13 +115,6 @@ define(function (require, exports, module) {
     	}
     }
 
-    function _hideLinesInEditor (hostEditor, start, end) {
-    	for (var i = start; i <= end; i++){
-    		hostEditor._hideLine(i); 
-    	};
-    }
-
-
 
     function _onCurrentDocumentChange () {
     	var currentDocument = DocumentManager.getCurrentDocument(); 
@@ -129,14 +122,15 @@ define(function (require, exports, module) {
     		return;
     	}
 
-    	_eachCommentInEditor(EditorManager.getCurrentFullEditor(), function eachCommentCallback (hostEditor, start, end) {
+        var currentHostEditor = EditorManager.getCurrentFullEditor(); 
+        currentHostEditor._codeMirror.operation(function (){
+        	_eachCommentInEditor(currentHostEditor, function eachCommentCallback (hostEditor, start, end) {
 
-    		_hideLinesInEditor(hostEditor, start, end); 
-
-    		var inlineMarkdownViewer = new InlineMarkdownViewer(); 
-    		inlineMarkdownViewer.load(hostEditor, start, end);
-    		hostEditor.addInlineWidget({line: (start > 0) ? start -1 : end + 1, ch:0}, inlineMarkdownViewer); 
-    	});
+        		var inlineMarkdownViewer = new InlineMarkdownViewer(); 
+        		inlineMarkdownViewer.load(hostEditor, start, end);
+        		hostEditor.addInlineWidget({line: (start > 0) ? start -1 : end + 1, ch:0}, inlineMarkdownViewer); 
+        	});
+        });
     }
 
     console.log("loading MarkdownInlineDocumentation!");

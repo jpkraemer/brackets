@@ -33,6 +33,8 @@ define(function (require, exports, module) {
     InlineMarkdownViewer.prototype.$contentDiv                  = null;
 
     InlineMarkdownViewer.prototype._visibleRange                = null;
+    InlineMarkdownViewer.prototype._hideRangeStart              = -1; 
+    InlineMarkdownViewer.prototype._hideRangeEnd                = -1;
 
     InlineMarkdownViewer.prototype.markdownInlineDocumentation  = null;
 
@@ -54,6 +56,9 @@ define(function (require, exports, module) {
 
         //observe the range changes 
         this._visibleRange = new TextRange (hostEditor.document, startLine, endLine);
+
+        // hide the comment lines in the editor
+        this._hideVisibleRangeInEditor(); 
 
         // Create DOM to hold editors and related list
         this.$contentDiv = $(document.createElement('div')).addClass("inlineMarkdownCommentHolder");
@@ -117,6 +122,31 @@ define(function (require, exports, module) {
         // this._updateRelatedContainer();
     };
 
+    InlineMarkdownViewer.prototype._hideVisibleRangeInEditor = function () {
+        // if the range got smaller this will show the lines which no longer need to be hidden
+        if (this._hideRangeStart != -1) {
+            for (var i = this._hideRangeStart; i < this._visibleRange.startLine; i++) {
+                //TODO: change this to an editor API once one exists
+                this.hostEditor._codeMirror.showLine(i); 
+            }
+        }
+
+        for (var i = this._visibleRange.startLine; i <= this._visibleRange.endLine; i++){
+            this.hostEditor._hideLine(i); 
+        };
+
+        // if the range got smaller this will show the lines which no longer need to be hidden
+        if (this._hideRangeEnd != -1) {
+            for (var i = this._visibleRange.endLine; i < this._hideRangeEnd; i++) {
+                //TODO: change this to an editor API once one exists
+                this.hostEditor._codeMirror.showLine(i); 
+            }   
+        }
+
+        this._hideRangeStart    = this._visibleRange.startLine; 
+        this._hideRangeEnd      = this._visibleRange.endLine;
+    }
+
     /** 
      * On click open an inline editor to edit the Markdown source code. 
      */
@@ -136,6 +166,9 @@ define(function (require, exports, module) {
       * On document change we need to update the markdown view eventually
       */ 
     InlineMarkdownViewer.prototype._onDocumentChange = function (event, document, changeList) {
+
+        // if the _visibleRange changed we need to change which lines are hidden
+        this._hideVisibleRangeInEditor();
 
         // check all changes if they concern the comment we display
         var currentChange = changeList; 
