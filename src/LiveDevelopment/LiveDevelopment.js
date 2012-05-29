@@ -73,13 +73,11 @@ define(function LiveDevelopment(require, exports, module) {
         "remote": require("LiveDevelopment/Agents/RemoteAgent"),
         "network": require("LiveDevelopment/Agents/NetworkAgent"),
         "dom": require("LiveDevelopment/Agents/DOMAgent"),
-        "css": require("LiveDevelopment/Agents/CSSAgent")
-        /* FUTURE 
+        "css": require("LiveDevelopment/Agents/CSSAgent"),
         "script": require("LiveDevelopment/Agents/ScriptAgent"),
         "highlight": require("LiveDevelopment/Agents/HighlightAgent"),
         "goto": require("LiveDevelopment/Agents/GotoAgent"),
         "edit": require("LiveDevelopment/Agents/EditAgent")
-        */
     };
 
     var _htmlDocumentPath; // the path of the html file open for live development
@@ -129,7 +127,6 @@ define(function LiveDevelopment(require, exports, module) {
         switch (doc.extension) {
         case "css":
             return CSSDocument;
-        /* FUTURE:
         case "js":
             return JSDocument;
         case "html":
@@ -137,7 +134,6 @@ define(function LiveDevelopment(require, exports, module) {
             return HTMLDocument;
         default:
             throw "Invalid document type: " + doc.extension;
-        */
         }
         
         return null;

@@ -315,14 +315,12 @@ function RemoteFunctions() {
 
     // install event listeners
     
-    /* FUTURE
     window.document.addEventListener("keyup", _onKeyUp);
     window.document.addEventListener("mousemove", _onMouse);
     window.document.addEventListener("mouseout", _onMouse);
     window.document.addEventListener("mousedown", _preventEventWhenMeta, true);
     window.document.addEventListener("mouseup", _preventEventWhenMeta, true);
     window.document.addEventListener("click", _onClick, true);
-    */
     
     return {
         "showGoto": showGoto,
