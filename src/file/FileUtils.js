@@ -35,6 +35,7 @@ define(function (require, exports, module) {
         PerfUtils           = require("utils/PerfUtils"),
         Dialogs             = require("widgets/Dialogs"),
         Strings             = require("strings"),
+        StringUtils         = require("utils/StringUtils"),
         Encodings           = NativeFileSystem.Encodings;
 
     
@@ -177,7 +178,7 @@ define(function (require, exports, module) {
             Strings.ERROR_OPENING_FILE_TITLE,
             Strings.format(
                 Strings.ERROR_OPENING_FILE,
-                path,
+                StringUtils.htmlEscape(path),
                 getFileErrorString(code)
             )
         );

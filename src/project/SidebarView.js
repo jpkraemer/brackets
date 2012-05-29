@@ -23,7 +23,7 @@
 
 
 /*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
-/*global define, $  */
+/*global define, $, document  */
 
 define(function (require, exports, module) {
     'use strict';
@@ -32,6 +32,8 @@ define(function (require, exports, module) {
         WorkingSetView          = require("project/WorkingSetView"),
         CommandManager          = require("command/CommandManager"),
         Commands                = require("command/Commands"),
+        Strings                 = require("strings"),
+        PreferencesManager      = require("preferences/PreferencesManager"),
         EditorManager           = require("editor/EditorManager");
 
     var $sidebar                = $("#sidebar"),
@@ -41,6 +43,10 @@ define(function (require, exports, module) {
         $projectTitle           = $("#project-title"),
         $projectFilesContainer  = $("#project-files-container"),
         isSidebarClosed         = false;
+    
+    var PREFERENCES_CLIENT_ID = "com.adobe.brackets.SidebarView",
+        defaultPrefs = { sidebarWidth: 200, sidebarClosed: false };
+    
     
     /**
      * @private
@@ -61,7 +67,11 @@ define(function (require, exports, module) {
     function _setWidth(width, updateMenu, displayTriangle) {
         // if we specify a width with the handler call, use that. Otherwise use
         // the greater of the current width or 200 (200 is the minimum width we'd snap back to)
-        width = width || Math.max($sidebar.width(), 200);
+        
+        var prefs                   = PreferencesManager.getPreferenceStorage(PREFERENCES_CLIENT_ID, defaultPrefs),
+            sidebarWidth            = Math.max(prefs.getValue("sidebarWidth"), 10);
+        
+        width = width || Math.max($sidebar.width(), sidebarWidth);
         
         if (typeof displayTriangle === "boolean") {
             var display = (displayTriangle) ? "block" : "none";
@@ -81,11 +91,15 @@ define(function (require, exports, module) {
             $sidebar.find(".sidebar-selection").width(width);
             $projectFilesContainer.triggerHandler("scroll");
             $openFilesContainer.triggerHandler("scroll");
+            
+            if (width > 10) {
+                prefs.setValue("sidebarWidth", width);
+            }
         }
         
         if (updateMenu) {
-            var text = (isSidebarClosed) ? "Show Sidebar" : "Hide Sidebar";
-            $sidebarMenuText.first().text(text);
+            var text = (isSidebarClosed) ? Strings.CMD_SHOW_SIDEBAR : Strings.CMD_HIDE_SIDEBAR;
+            CommandManager.get(Commands.VIEW_HIDE_SIDEBAR).setName(text);
         }
         
         EditorManager.resizeEditor();
@@ -103,6 +117,9 @@ define(function (require, exports, module) {
         
         isSidebarClosed = !isSidebarClosed;
         
+        var prefs = PreferencesManager.getPreferenceStorage(PREFERENCES_CLIENT_ID, defaultPrefs);
+        prefs.setValue("sidebarClosed", isSidebarClosed);
+        
         _setWidth(width, true, !isSidebarClosed);
     }
     
@@ -112,10 +129,19 @@ define(function (require, exports, module) {
      */
     function _initSidebarResizer() {
         var $mainView               = $(".main-view"),
-            sidebarWidth            = $sidebar.width(),
+            $body                   = $(document.body),
+            prefs                   = PreferencesManager.getPreferenceStorage(PREFERENCES_CLIENT_ID, defaultPrefs),
+            sidebarWidth            = prefs.getValue("sidebarWidth"),
             startingSidebarPosition = sidebarWidth;
         
         $sidebarResizer.css("left", sidebarWidth - 1);
+        
+        if (prefs.getValue("sidebarClosed")) {
+            toggleSidebar(sidebarWidth);
+        } else {
+            _setWidth(sidebarWidth, true, true);
+        }
+        
         $sidebarResizer.on("dblclick", function () {
             if ($sidebar.width() === 1) {
                 // mousedown is fired first. Sidebar is already toggeled open to 1px.
@@ -126,7 +152,7 @@ define(function (require, exports, module) {
         });
         $sidebarResizer.on("mousedown.sidebar", function (e) {
             var startX = e.clientX;
-            
+            $body.toggleClass("resizing");
             // check to see if we're currently in hidden mode
             if (isSidebarClosed) {
                 toggleSidebar(1);
@@ -142,6 +168,7 @@ define(function (require, exports, module) {
                 if ((startX > 10) && (newWidth < 10)) {
                     toggleSidebar(startingSidebarPosition);
                     $mainView.off("mousemove.sidebar");
+                    $body.toggleClass("resizing");
                     doResize = false;
                 } else if (startX < 10) {
                     // reset startX if we're going from a snapped closed position to open
@@ -162,6 +189,7 @@ define(function (require, exports, module) {
                 
                 if (newWidth === 0) {
                     $mainView.off("mousemove.sidebar");
+                    $("body").toggleClass("resizing");
                 }
                     
                 e.preventDefault();
@@ -169,9 +197,10 @@ define(function (require, exports, module) {
                 
             $mainView.one("mouseup.sidebar", function (e) {
                 $mainView.off("mousemove.sidebar");
+                $body.toggleClass("resizing");
                 startingSidebarPosition = $sidebar.width();
             });
-                
+            
             e.preventDefault();
         });
     }
@@ -181,6 +210,8 @@ define(function (require, exports, module) {
         WorkingSetView.create($openFilesContainer);
         
         $(ProjectManager).on("projectRootChanged", _updateProjectTitle);
+
+        CommandManager.register(Strings.CMD_HIDE_SIDEBAR,       Commands.VIEW_HIDE_SIDEBAR,     toggleSidebar);
         
         _initSidebarResizer();
     }());
