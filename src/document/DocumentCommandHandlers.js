@@ -138,9 +138,9 @@ define(function (require, exports, module) {
             return promise;
         }
         
-        var perfTimerName = PerfUtils.markStart("Open File:\t" + fullPath);
+        PerfUtils.markStart(PerfUtils.OPEN_FILE);
         result.always(function () {
-            PerfUtils.addMeasurement(perfTimerName);
+            PerfUtils.addMeasurement(PerfUtils.OPEN_FILE);
         });
         
         // Load the file if it was never open before, and then switch to it in the UI
@@ -740,8 +740,8 @@ define(function (require, exports, module) {
         CommandManager.register(Strings.CMD_CLOSE_WINDOW,       Commands.FILE_CLOSE_WINDOW, handleFileCloseWindow);
         CommandManager.register(Strings.CMD_QUIT,               Commands.FILE_QUIT, handleFileQuit);
         CommandManager.register(Strings.CMD_REFRESH_WINDOW,     Commands.DEBUG_REFRESH_WINDOW, handleFileReload);
-        CommandManager.register(Strings.CMD_NEXT_DOC, 			Commands.NAVIGATE_NEXT_DOC, handleGoNextDoc);
-        CommandManager.register(Strings.CMD_PREV_DOC,			Commands.NAVIGATE_PREV_DOC, handleGoPrevDoc);
+        CommandManager.register(Strings.CMD_NEXT_DOC,           Commands.NAVIGATE_NEXT_DOC, handleGoNextDoc);
+        CommandManager.register(Strings.CMD_PREV_DOC,           Commands.NAVIGATE_PREV_DOC, handleGoPrevDoc);
 
         KeyBindingManager.addBinding(Commands.NAVIGATE_NEXT_DOC, "Ctrl-Tab");
         KeyBindingManager.addBinding(Commands.NAVIGATE_PREV_DOC, "Ctrl-Shift-Tab");

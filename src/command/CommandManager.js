@@ -50,6 +50,8 @@ define(function (require, exports, module) {
      * Events:
      *      enabledStateChange
      *      checkedStateChange
+     *      keyBindingAdded
+     *      keyBindingRemoved
      */
     function Command(name, id, commandFn) {
         this._name = name;
@@ -70,6 +72,10 @@ define(function (require, exports, module) {
      * @return {$.Promise} a jQuery promise that will be resolved when the command completes.
      */
     Command.prototype.execute = function () {
+        if (!this._enabled) {
+            return;
+        }
+        
         var result = this._commandFn.apply(this, arguments);
         if (!result) {
             return (new $.Deferred()).resolve().promise();
@@ -93,7 +99,7 @@ define(function (require, exports, module) {
         this._enabled = enabled;
 
         if (changed) {
-            $(this).triggerHandler("enabledStateChange", this);
+            $(this).triggerHandler("enabledStateChange");
         }
     };
 
@@ -107,7 +113,7 @@ define(function (require, exports, module) {
         this._checked = checked;
 
         if (changed) {
-            $(this).triggerHandler("checkedStateChange", this);
+            $(this).triggerHandler("checkedStateChange");
         }
     };
 
@@ -119,6 +125,11 @@ define(function (require, exports, module) {
     /**
      * Sets the name of the Command and dispatches "nameChange" so that
      * UI that reflects the command name can update.
+     * 
+     * Note, a Command name can appear in either HTML or native UI
+     * so HTML tags should not be used. To add a Unicode character,
+     * use \uXXXX instead of an HTML entity.
+     * 
      * @param {string} name
      */
     Command.prototype.setName = function (name) {
@@ -126,7 +137,7 @@ define(function (require, exports, module) {
         this._name = name;
 
         if (changed) {
-            $(this).triggerHandler("nameChange", this);
+            $(this).triggerHandler("nameChange");
         }
     };
 
@@ -163,6 +174,11 @@ define(function (require, exports, module) {
         return command;
     }
 
+
+    function _reset() {
+        _commands = {};
+    }
+
     /**
      * Retrieves a Command object by id
      * @param {string} id
@@ -191,4 +207,5 @@ define(function (require, exports, module) {
     exports.register = register;
     exports.execute = execute;
     exports.get = get;
+    exports._reset = _reset;
 });
