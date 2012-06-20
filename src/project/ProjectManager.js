@@ -30,9 +30,8 @@
  * the file tree.
  *
  * This module dispatches these events:
- *    - initializeComplete -- When the ProjectManager initializes the first 
- *                            project at application start-up.
- *    - projectRootChanged -- when _projectRoot changes
+ *    - beforeProjectClose -- before _projectRoot changes
+ *    - projectOpen        -- after  _projectRoot changes
  *
  * These are jQuery events, so to listen for them you do something like this:
  *    $(ProjectManager).on("eventname", handler);
@@ -220,7 +219,7 @@ define(function (require, exports, module) {
             depth;
 
         // Query open nodes by class selector
-        $(".jstree-open").each(function (index) {
+        $(".jstree-open:visible").each(function (index) {
             entry = $(this).data("entry");
 
             if (entry.fullPath) {
@@ -540,7 +539,7 @@ define(function (require, exports, module) {
                 Dialogs.showModalDialog(
                     Dialogs.DIALOG_ID_ERROR,
                     Strings.ERROR_LOADING_PROJECT,
-                    Strings.format(Strings.READ_DIRECTORY_ENTRIES_ERROR,
+                    StringUtils.format(Strings.READ_DIRECTORY_ENTRIES_ERROR,
                         StringUtils.htmlEscape(dirEntry.fullPath),
                         error.code)
                 );
@@ -580,13 +579,11 @@ define(function (require, exports, module) {
 
         var prefs = _prefs.getAllValues(),
             result = new $.Deferred(),
-            resultRenderTree,
-            isFirstProjectOpen = false;
+            resultRenderTree;
 
         if (rootPath === null || rootPath === undefined) {
             // Load the last known project into the tree
             rootPath = prefs.projectPath;
-            isFirstProjectOpen = true;
 
             _projectInitialLoad.previous = prefs.projectTreeState;
 
@@ -597,8 +594,6 @@ define(function (require, exports, module) {
             }
         }
         
-        var perfTimerName = PerfUtils.markStart("Load Project: " + rootPath);
-
         // Populate file tree as long as we aren't running in the browser
         if (!brackets.inBrowser) {
             // Point at a real folder structure on local disk
@@ -608,6 +603,8 @@ define(function (require, exports, module) {
                         || _projectRoot.fullPath !== rootEntry.fullPath;
 
                     // Success!
+                    var perfTimerName = PerfUtils.markStart("Load Project: " + rootPath);
+
                     _projectRoot = rootEntry;
 
                     // The tree will invoke our "data provider" function to populate the top-level items, then
@@ -616,17 +613,14 @@ define(function (require, exports, module) {
                     resultRenderTree = _renderTree(_treeDataProvider);
 
                     resultRenderTree.done(function () {
-                        if (isFirstProjectOpen) {
-                            $(exports).triggerHandler("initializeComplete", _projectRoot);
-                        }
-
                         if (projectRootChanged) {
-                            $(exports).triggerHandler("projectRootChanged", _projectRoot);
+                            $(exports).triggerHandler("projectOpen", _projectRoot);
                         }
                         
                         result.resolve();
                     });
                     resultRenderTree.fail(function () {
+                        PerfUtils.terminateMeasurement(perfTimerName);
                         result.reject();
                     });
                     resultRenderTree.always(function () {
@@ -637,7 +631,7 @@ define(function (require, exports, module) {
                     Dialogs.showModalDialog(
                         Dialogs.DIALOG_ID_ERROR,
                         Strings.ERROR_LOADING_PROJECT,
-                        Strings.format(
+                        StringUtils.format(
                             Strings.REQUEST_NATIVE_FILE_SYSTEM_ERROR,
                             StringUtils.htmlEscape(rootPath),
                             error.code,
@@ -674,6 +668,8 @@ define(function (require, exports, module) {
                     function (files) {
                         // If length == 0, user canceled the dialog; length should never be > 1
                         if (files.length > 0) {
+                            $(exports).triggerHandler("beforeProjectClose", _projectRoot);
+
                             // Actually close all the old files now that we know for sure we're proceeding
                             DocumentManager.closeAll();
                             
@@ -685,7 +681,7 @@ define(function (require, exports, module) {
                         Dialogs.showModalDialog(
                             Dialogs.DIALOG_ID_ERROR,
                             Strings.ERROR_LOADING_PROJECT,
-                            Strings.format(Strings.OPEN_DIALOG_ERROR, error.code)
+                            StringUtils.format(Strings.OPEN_DIALOG_ERROR, error.code)
                         );
                     }
                     );
@@ -812,15 +808,15 @@ define(function (require, exports, module) {
                             Dialogs.showModalDialog(
                                 Dialogs.DIALOG_ID_ERROR,
                                 Strings.INVALID_FILENAME_TITLE,
-                                Strings.format(Strings.FILE_ALREADY_EXISTS,
+                                StringUtils.format(Strings.FILE_ALREADY_EXISTS,
                                     StringUtils.htmlEscape(data.rslt.name))
                             );
                         } else {
                             var errString = error.code === FileError.NO_MODIFICATION_ALLOWED_ERR ?
                                              Strings.NO_MODIFICATION_ALLOWED_ERR :
-                                             Strings.format(String.GENERIC_ERROR, error.code);
+                                             StringUtils.format(String.GENERIC_ERROR, error.code);
 
-                            var errMsg = Strings.format(Strings.ERROR_CREATING_FILE,
+                            var errMsg = StringUtils.format(Strings.ERROR_CREATING_FILE,
                                             StringUtils.htmlEscape(data.rslt.name),
                                             errString);
                           
@@ -851,11 +847,7 @@ define(function (require, exports, module) {
         _projectTree.jstree("create", node, position, {data: initialName}, null, skipRename);
 
         if (!skipRename) {
-            var $renameInput = _projectTree.find(".jstree-rename-input"),
-                projectTreeOffset = _projectTree.offset(),
-                projectTreeScroller = _projectTree.get(0),
-                renameInput = $renameInput.get(0),
-                renameInputOffset = $renameInput.offset();
+            var $renameInput = _projectTree.find(".jstree-rename-input");
 
             $renameInput.on("keydown", function (event) {
                 // Listen for escape key on keydown, so we can remove the node in the create.jstree handler above
@@ -863,22 +855,8 @@ define(function (require, exports, module) {
                     escapeKeyPressed = true;
                 }
             });
-            
-            // make sure edit box is visible within the jstree, only scroll vertically when necessary
-            if (renameInputOffset.top + $renameInput.height() >= (projectTreeOffset.top + _projectTree.height())) {
-                // below viewport
-                renameInput.scrollIntoView(false);
-            } else if (renameInputOffset.top <= projectTreeOffset.top) {
-                // above viewport
-                renameInput.scrollIntoView(true);
-            }
-            
-            // left-align renameInput
-            if (renameInputOffset.left < 0) {
-                _projectTree.scrollLeft(_projectTree.scrollLeft() + renameInputOffset.left);
-            } else if (renameInputOffset.left + $renameInput.width() >= projectTreeOffset.left + _projectTree.width()) {
-                _projectTree.scrollLeft(renameInputOffset.left - projectTreeOffset.left);
-            }
+
+            ViewUtils.scrollElementIntoView(_projectTree, $renameInput, true);
         }
         
         return result.promise();

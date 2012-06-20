@@ -324,7 +324,7 @@ define(function (require, exports, module) {
         return Dialogs.showModalDialog(
             Dialogs.DIALOG_ID_ERROR,
             Strings.ERROR_SAVING_FILE_TITLE,
-            Strings.format(
+            StringUtils.format(
                 Strings.ERROR_SAVING_FILE,
                 StringUtils.htmlEscape(path),
                 FileUtils.getFileErrorString(code)
@@ -361,8 +361,8 @@ define(function (require, exports, module) {
                         handleError(error, fileEntry);
                     };
 
-                    // TODO (issue #241): Blob instead of string
-                    writer.write(docToSave.getText());
+                    // We don't want normalized line endings, so it's important to pass true to getText()
+                    writer.write(docToSave.getText(true));
                 },
                 function (error) {
                     handleError(error, fileEntry);
@@ -506,7 +506,7 @@ define(function (require, exports, module) {
             Dialogs.showModalDialog(
                 Dialogs.DIALOG_ID_SAVE_CLOSE,
                 Strings.SAVE_CLOSE_TITLE,
-                Strings.format(Strings.SAVE_CLOSE_MESSAGE, StringUtils.htmlEscape(filename))
+                StringUtils.format(Strings.SAVE_CLOSE_MESSAGE, StringUtils.htmlEscape(filename))
             ).done(function (id) {
                 if (id === Dialogs.DIALOG_BTN_CANCEL) {
                     result.reject();

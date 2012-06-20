@@ -34,122 +34,123 @@ define(function (require, exports, module) {
         FileIndexManager,       // loaded from brackets.test
         FileViewController,     // loaded from brackets.test
         ProjectManager,         // loaded from brackets.test
+        PerfUtils,              // loaded from brackets.test
         
         FileUtils           = brackets.getModule("file/FileUtils"),
         NativeFileSystem    = brackets.getModule("file/NativeFileSystem").NativeFileSystem,
-        SpecRunnerUtils     = brackets.getModule("spec/SpecRunnerUtils.js");
+        SpecRunnerUtils     = brackets.getModule("spec/SpecRunnerUtils"),
+        PerformanceReporter = brackets.getModule("perf/PerformanceReporter");
 
     // Local modules
     var JSUtils             = require("JSUtils");
 
-    var extensionPath = FileUtils.getNativeModuleDirectoryPath(module);
+    var extensionPath = FileUtils.getNativeModuleDirectoryPath(module),
+        testPath = extensionPath + "/unittest-files",
+        testWindow,
+        initInlineTest;
+
+    function rewriteProject(spec) {
+        var result = new $.Deferred();
     
-    describe("JSQuickEdit", function () {
-
-        var testPath = extensionPath + "/unittest-files",
-            testWindow,
-            initInlineTest;
-
-        function rewriteProject(spec) {
-            var result = new $.Deferred();
-        
-            FileIndexManager.getFileInfoList("all").done(function (allFiles) {
-                // convert fileInfos to fullPaths
-                allFiles = allFiles.map(function (fileInfo) {
-                    return fileInfo.fullPath;
-                });
-                
-                // parse offsets and save
-                SpecRunnerUtils.saveFilesWithoutOffsets(allFiles).done(function (offsetInfos) {
-                    spec.infos = offsetInfos;
+        FileIndexManager.getFileInfoList("all").done(function (allFiles) {
+            // convert fileInfos to fullPaths
+            allFiles = allFiles.map(function (fileInfo) {
+                return fileInfo.fullPath;
+            });
             
-                    // install after function to restore file content
-                    spec.after(function () {
-                        var done = false;
-                        
-                        runs(function () {
-                            SpecRunnerUtils.saveFilesWithOffsets(spec.infos).done(function () {
-                                done = true;
-                            });
+            // parse offsets and save
+            SpecRunnerUtils.saveFilesWithoutOffsets(allFiles).done(function (offsetInfos) {
+                spec.infos = offsetInfos;
+        
+                // install after function to restore file content
+                spec.after(function () {
+                    var done = false;
+                    
+                    runs(function () {
+                        SpecRunnerUtils.saveFilesWithOffsets(spec.infos).done(function () {
+                            done = true;
                         });
-                        
-                        waitsFor(function () { return done; }, "saveFilesWithOffsets timeout", 1000);
                     });
                     
-                    result.resolve();
-                }).fail(function () {
-                    result.reject();
+                    waitsFor(function () { return done; }, "saveFilesWithOffsets timeout", 1000);
                 });
+                
+                result.resolve();
+            }).fail(function () {
+                result.reject();
             });
-            
-            return result.promise();
-        }
+        });
         
-        /**
-         * Performs setup for an inline editor test. Parses offsets (saved to Spec.offsets) for all files in
-         * the test project (testPath) and saves files back to disk without offset markup.
-         * When finished, open an editor for the specified project relative file path
-         * then attempts opens an inline editor at the given offset. Installs an after()
-         * function restore all file content back to original state with offset markup.
-         * 
-         * @param {!string} openFile Project relative file path to open in a main editor.
-         * @param {!number} openOffset The offset index location within openFile to open an inline editor.
-         * @param {?boolean} expectInline Use false to verify that an inline editor should not be opened. Omit otherwise.
-         */
-        var _initInlineTest = function (openFile, openOffset, expectInline, workingSet) {
-            var allFiles,
-                hostOpened = false,
-                err = false,
-                inlineOpened = null,
-                spec = this,
-                rewriteDone = false,
-                rewriteErr = false;
-            
-            workingSet = workingSet || [];
-            
-            expectInline = (expectInline !== undefined) ? expectInline : true;
-            
-            SpecRunnerUtils.loadProjectInTestWindow(testPath);
-            
-            runs(function () {
-                rewriteProject(spec)
-                    .done(function () { rewriteDone = true; })
-                    .fail(function () { rewriteErr = true; });
+        return result.promise();
+    }
+    
+    /**
+     * Performs setup for an inline editor test. Parses offsets (saved to Spec.offsets) for all files in
+     * the test project (testPath) and saves files back to disk without offset markup.
+     * When finished, open an editor for the specified project relative file path
+     * then attempts opens an inline editor at the given offset. Installs an after()
+     * function restore all file content back to original state with offset markup.
+     * 
+     * @param {!string} openFile Project relative file path to open in a main editor.
+     * @param {!number} openOffset The offset index location within openFile to open an inline editor.
+     * @param {?boolean} expectInline Use false to verify that an inline editor should not be opened. Omit otherwise.
+     */
+    var _initInlineTest = function (openFile, openOffset, expectInline, workingSet) {
+        var allFiles,
+            hostOpened = false,
+            err = false,
+            inlineOpened = null,
+            spec = this,
+            rewriteDone = false,
+            rewriteErr = false;
+        
+        workingSet = workingSet || [];
+        
+        expectInline = (expectInline !== undefined) ? expectInline : true;
+        
+        SpecRunnerUtils.loadProjectInTestWindow(testPath);
+        
+        runs(function () {
+            rewriteProject(spec)
+                .done(function () { rewriteDone = true; })
+                .fail(function () { rewriteErr = true; });
+        });
+        
+        waitsFor(function () { return rewriteDone && !rewriteErr; }, "rewriteProject timeout", 1000);
+        
+        runs(function () {
+            workingSet.push(openFile);
+            SpecRunnerUtils.openProjectFiles(workingSet).done(function (documents) {
+                hostOpened = true;
+            }).fail(function () {
+                err = true;
             });
+        });
+        
+        waitsFor(function () { return hostOpened && !err; }, "FILE_OPEN timeout", 1000);
+        
+        runs(function () {
+            var editor = EditorManager.getCurrentFullEditor();
             
-            waitsFor(function () { return rewriteDone && !rewriteErr; }, "rewriteProject timeout", 1000);
+            // open inline editor at specified offset index
+            var inlineEditorResult = SpecRunnerUtils.openInlineEditorAtOffset(
+                editor,
+                spec.infos[openFile].offsets[openOffset]
+            );
             
-            runs(function () {
-                workingSet.push(openFile);
-                SpecRunnerUtils.openProjectFiles(workingSet).done(function (documents) {
-                    hostOpened = true;
-                }).fail(function () {
-                    err = true;
-                });
+            inlineEditorResult.done(function () {
+                inlineOpened = true;
+            }).fail(function () {
+                inlineOpened = false;
             });
-            
-            waitsFor(function () { return hostOpened && !err; }, "FILE_OPEN timeout", 1000);
-            
-            runs(function () {
-                var editor = EditorManager.getCurrentFullEditor();
-                
-                // open inline editor at specified offset index
-                var inlineEditorResult = SpecRunnerUtils.openInlineEditorAtOffset(
-                    editor,
-                    spec.infos[openFile].offsets[openOffset]
-                );
-                
-                inlineEditorResult.done(function () {
-                    inlineOpened = true;
-                }).fail(function () {
-                    inlineOpened = false;
-                });
-            });
-            
-            waitsFor(function () {
-                return (inlineOpened !== null) && (inlineOpened === expectInline);
-            }, "inline editor timeout", 1000);
-        };
+        });
+        
+        waitsFor(function () {
+            return (inlineOpened !== null) && (inlineOpened === expectInline);
+        }, "inline editor timeout", 1000);
+    };
+    
+    describe("JSQuickEdit", function () {
 
         /*
          * 
@@ -285,6 +286,9 @@ define(function (require, exports, module) {
 
         var simpleJsFileEntry = new NativeFileSystem.FileEntry(extensionPath + "/unittest-files/simple.js");
         var jQueryJsFileEntry = new NativeFileSystem.FileEntry(extensionPath + "/unittest-files/jquery-1.7.js");
+        var braceEndJsFileEntry = new NativeFileSystem.FileEntry(extensionPath + "/unittest-files/braceEnd.js");
+        var eofJsFileEntry = new NativeFileSystem.FileEntry(extensionPath + "/unittest-files/eof.js");
+        var eof2JsFileEntry = new NativeFileSystem.FileEntry(extensionPath + "/unittest-files/eof2.js");
 
         function init(spec, fileEntry) {
             spec.fileJsContent = null;
@@ -395,6 +399,93 @@ define(function (require, exports, module) {
                         expectFunctionRanges(this, this.fileJsContent, "function3",   [ {start: 58, end: 60} ]);
                     });
                 });
+                
+                it("should ignore identifiers with whitespace", function () {
+                    runs(function () {
+                        init(this, simpleJsFileEntry);
+                    });
+                    
+                    runs(function () {
+                        var negativeTests = ["invalid", "identifier", "invalid identifier"],
+                            result,
+                            content = this.fileJsContent;
+                        
+                        negativeTests.forEach(function (name) {
+                            result = JSUtils._findAllMatchingFunctionsInText(content, name);
+                            expect(result.length).toBe(0);
+                        });
+                    });
+                });
+            });
+            
+            describe("brace ends of functions", function () {
+                beforeEach(function () {
+                    init(this, braceEndJsFileEntry);
+                });
+                
+                function expectEndBrace(spec, funcName) {
+                    var startPos = spec.fileJsContent.indexOf("function " + funcName);
+                    expect(startPos).toNotBe(-1);
+
+                    var endPos = JSUtils._getFunctionEndOffset(spec.fileJsContent, startPos);
+                    var endMarker = spec.fileJsContent.slice(endPos);
+                    expect(endMarker.indexOf("//END " + funcName)).toBe(0);
+                }
+                
+                it("should handle a simple function", function () {
+                    expectEndBrace(this, "simpleFunction");
+                });
+                it("should handle nested braces", function () {
+                    expectEndBrace(this, "nestedBraces");
+                });
+                it("should handle a nested function", function () {
+                    expectEndBrace(this, "nestedFunction");
+                });
+                it("should handle an end brace in a string", function () {
+                    expectEndBrace(this, "endBraceInString");
+                });
+                it("should handle an end brace in a single-quoted string", function () {
+                    expectEndBrace(this, "endBraceInSingleQuoteString");
+                });
+                it("should handle an end brace in a line comment", function () {
+                    expectEndBrace(this, "endBraceInLineComment");
+                });
+                it("should handle an end brace in a block comment", function () {
+                    expectEndBrace(this, "endBraceInBlockComment");
+                });
+                it("should handle an end brace in a multiline block comment", function () {
+                    expectEndBrace(this, "endBraceInMultilineBlockComment");
+                });
+                it("should handle an end brace in a regexp", function () {
+                    expectEndBrace(this, "endBraceInRegexp");
+                });
+                it("should handle a single-line function", function () {
+                    expectEndBrace(this, "singleLine");
+                });
+                it("should handle a single-line function with a fake brace", function () {
+                    expectEndBrace(this, "singleLineWithFakeBrace");
+                });
+                it("should handle a complicated case", function () {
+                    expectEndBrace(this, "itsComplicated");
+                });
+            });
+            
+            describe("brace end of function that ends at end of file", function () {
+                it("should find the end of a function that ends exactly at the end of the file", function () {
+                    init(this, eofJsFileEntry);
+                    runs(function () {
+                        expect(JSUtils._getFunctionEndOffset(this.fileJsContent, 0)).toBe(this.fileJsContent.length);
+                    });
+                });
+            });
+            
+            describe("end of function that's unclosed at end of file", function () {
+                it("should find the end of a function that is unclosed at the end of the file", function () {
+                    init(this, eof2JsFileEntry);
+                    runs(function () {
+                        expect(JSUtils._getFunctionEndOffset(this.fileJsContent, 0)).toBe(this.fileJsContent.length);
+                    });
+                });
             });
 
             describe("with real-world jQuery JS code", function () {
@@ -495,33 +586,44 @@ define(function (require, exports, module) {
                     SpecRunnerUtils.closeTestWindow();
                 });
                 
-/***
-                it("should return the correct offsets if the file has changed", function () {
-                    var didOpen = false,
-                        gotError = false;
+                function fileChangedTest(buildCache) {
+                    var doc,
+                        didOpen = false,
+                        gotError = false,
+                        extensionRequire,
+                        JSUtilsInExtension,
+                        functions = null;
 
                     runs(function () {
+                        extensionRequire = brackets.getModule('utils/ExtensionLoader').getRequireContextForExtension('JavaScriptQuickEdit');
+                        JSUtilsInExtension = extensionRequire("JSUtils");
+                        
                         FileViewController.openAndSelectDocument(testPath + "/edit.js", FileViewController.PROJECT_MANAGER)
                             .done(function () { didOpen = true; })
                             .fail(function () { gotError = true; });
                     });
                     
                     waitsFor(function () { return didOpen && !gotError; }, "FileViewController.addToWorkingSetAndSelect() timeout", 1000);
-
-//                    var opened = false, err = false;
-//                    runs(function () {
-//                        SpecRunnerUtils.openProjectFiles([testPath + "/edit.js"])
-//                            .done(function (documents) {
-//                                opened = true;
-//                            })
-//                            .fail(function () {
-//                                err = true;
-//                            });
-//                    });
-//                    
-//                    waitsFor(function () { return opened && !err; }, "FILE_OPEN timeout", 1000);
                     
-                    var functions = null;
+                    // Populate JSUtils cache
+                    if (buildCache) {
+                        runs(function () {
+                            FileIndexManager.getFileInfoList("all")
+                                .done(function (fileInfos) {
+                                    // Look for "edit2" function
+                                    JSUtilsInExtension.findMatchingFunctions("edit2", fileInfos)
+                                        .done(function (result) { functions = result; });
+                                });
+                        });
+                        
+                        waitsFor(function () { return functions !== null; }, "JSUtils.findMatchingFunctions() timeout", 1000);
+                        
+                        runs(function () {
+                            expect(functions.length).toBe(1);
+                            expect(functions[0].lineStart).toBe(7);
+                            expect(functions[0].lineEnd).toBe(9);
+                        });
+                    }
                     
                     runs(function () {
                         var doc = DocumentManager.getCurrentDocument();
@@ -531,8 +633,11 @@ define(function (require, exports, module) {
 
                         FileIndexManager.getFileInfoList("all")
                             .done(function (fileInfos) {
+                                // JSUtils cache should update with new offsets
+                                functions = null;
+                                
                                 // Look for "edit2" function
-                                JSUtils.findMatchingFunctions("edit2", fileInfos)
+                                JSUtilsInExtension.findMatchingFunctions("edit2", fileInfos)
                                     .done(function (result) { functions = result; });
                             });
                     });
@@ -544,14 +649,27 @@ define(function (require, exports, module) {
                         expect(functions[0].lineStart).toBe(11);
                         expect(functions[0].lineEnd).toBe(13);
                     });
+                }
+                
+                it("should return the correct offsets if the file has changed", function () {
+                    fileChangedTest(false);
                 });
-***/
-/***
-                it("should return a newly created function in an unsaved file", function () {
+                
+                it("should return the correct offsets if the results were cached and the file has changed", function () {
+                    fileChangedTest(true);
+                });
+                
+                function insertFunctionTest(buildCache) {
                     var didOpen = false,
-                        gotError = false;
+                        gotError = false,
+                        extensionRequire,
+                        JSUtilsInExtension,
+                        functions = null;
                     
                     runs(function () {
+                        extensionRequire = brackets.getModule('utils/ExtensionLoader').getRequireContextForExtension('JavaScriptQuickEdit');
+                        JSUtilsInExtension = extensionRequire("JSUtils");
+                        
                         FileViewController.openAndSelectDocument(testPath + "/edit.js", FileViewController.PROJECT_MANAGER)
                             .done(function () { didOpen = true; })
                             .fail(function () { gotError = true; });
@@ -559,29 +677,167 @@ define(function (require, exports, module) {
                     
                     waitsFor(function () { return didOpen && !gotError; }, "FileViewController.addToWorkingSetAndSelect() timeout", 1000);
                     
-                    var functions = null;
+                    // Populate JSUtils cache
+                    if (buildCache) {
+                        runs(function () {
+                            // Look for the selector we're about to create--we shouldn't find it yet
+                            FileIndexManager.getFileInfoList("all")
+                                .done(function (fileInfos) {
+                                    // Look for "TESTFUNCTION" function
+                                    JSUtilsInExtension.findMatchingFunctions("TESTFUNCTION", fileInfos)
+                                        .done(function (result) {
+                                            functions = result;
+                                        });
+                                });
+                        });
+                        
+                        waitsFor(function () { return functions !== null; }, "JSUtils.findMatchingFunctions() timeout", 1000);
+                        
+                        runs(function () {
+                            expect(functions.length).toBe(0);
+                        });
+                    }
                     
                     runs(function () {
-                        var doc = DocumentManager.getCurrentDocument();
+                        // reset result functions array
+                        functions = null;
                         
+                        var doc = DocumentManager.getCurrentDocument();
                         // Add a new function to the file
                         doc.setText(doc.getText() + "\n\nfunction TESTFUNCTION() {\n    return true;\n}\n");
                         
                         // Look for the selector we just created
-                        JSUtils.findMatchingFunctions("TESTFUNCTION", FileIndexManager.getFileInfoList("all"))
-                            .done(function (result) { functions = result; });
+                        FileIndexManager.getFileInfoList("all")
+                            .done(function (fileInfos) {
+                                var extensionRequire = brackets.getModule('utils/ExtensionLoader').getRequireContextForExtension('JavaScriptQuickEdit');
+                                var JSUtilsInExtension = extensionRequire("JSUtils");
+
+                                // Look for "TESTFUNCTION" function
+                                JSUtilsInExtension.findMatchingFunctions("TESTFUNCTION", fileInfos)
+                                    .done(function (result) {
+                                        functions = result;
+                                    });
+                            });
                     });
                     
                     waitsFor(function () { return functions !== null; }, "JSUtils.findMatchingFunctions() timeout", 1000);
                     
                     runs(function () {
                         expect(functions.length).toBe(1);
-                        expect(functions[0].lineStart).toBe(24);
-                        expect(functions[0].lineEnd).toBe(26);
+                        expect(functions[0].lineStart).toBe(33);
+                        expect(functions[0].lineEnd).toBe(35);
                     });
+                }
+
+                it("should return a newly created function in an unsaved file", function () {
+                    insertFunctionTest(false);
                 });
-***/
+
+                it("should return a newly created function in an unsaved file that already has cached results", function () {
+                    insertFunctionTest(true);
+                });
             });
         }); //describe("JS Parsing")
+        
+        describe("Performance suite", function () {
+            
+            this.performance = true;
+            
+            var testPath = SpecRunnerUtils.getTestPath("/../../../brackets-scenario/jquery-ui/");
+
+            beforeEach(function () {
+                SpecRunnerUtils.createTestWindowAndRun(this, function (w) {
+                    testWindow = w;
+                    CommandManager      = testWindow.brackets.test.CommandManager;
+                    EditorManager       = testWindow.brackets.test.EditorManager;
+                    PerfUtils           = testWindow.brackets.test.PerfUtils;
+                });
+            });
+    
+            afterEach(function () {
+                SpecRunnerUtils.closeTestWindow();
+            });
+            
+            it("should open inline editors", function () {
+                SpecRunnerUtils.loadProjectInTestWindow(testPath);
+                
+                var extensionRequire,
+                    JavaScriptQuickEdit,
+                    done = false,
+                    error = false,
+                    i,
+                    perfMeasurements = [
+                        {
+                            measure: PerfUtils.JAVASCRIPT_INLINE_CREATE,
+                            children: [
+                                {
+                                    measure: PerfUtils.FILE_INDEX_MANAGER_SYNC
+                                },
+                                {
+                                    measure: PerfUtils.JAVASCRIPT_FIND_FUNCTION,
+                                    children: [
+                                        {
+                                            measure: PerfUtils.JSUTILS_GET_ALL_FUNCTIONS,
+                                            children: [
+                                                {
+                                                    measure: PerfUtils.DOCUMENT_MANAGER_GET_DOCUMENT_FOR_PATH,
+                                                    name: "Document creation during this search",
+                                                    operation: "sum"
+                                                },
+                                                {
+                                                    measure: PerfUtils.JSUTILS_REGEXP,
+                                                    operation: "sum"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            measure: PerfUtils.JSUTILS_END_OFFSET,
+                                            operation: "sum"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ];
+                
+                runs(function () {
+                    extensionRequire = testWindow.brackets.getModule('utils/ExtensionLoader').getRequireContextForExtension('JavaScriptQuickEdit');
+                    JavaScriptQuickEdit = extensionRequire("main");
+                    
+                    SpecRunnerUtils.openProjectFiles(["ui/jquery.effects.core.js"]).done(function () {
+                        done = true;
+                    }).fail(function () {
+                        error = true;
+                    });
+                });
+                
+                waitsFor(function () { return done && !error; }, 500);
+                
+                var runCreateInlineEditor = function () {
+                    done = error = false;
+                    
+                    JavaScriptQuickEdit._createInlineEditor(EditorManager.getCurrentFullEditor(), "extend").done(function () {
+                        done = true;
+                    }).fail(function () {
+                        error = true;
+                    });
+                };
+                
+                var waitForInlineEditor = function () { return done && !error; };
+                
+                function logPerf() {
+                    PerformanceReporter.logTestWindow(perfMeasurements);
+                    PerformanceReporter.clearTestWindow();
+                }
+                
+                // repeat 5 times
+                for (i = 0; i < 5; i++) {
+                    runs(runCreateInlineEditor);
+                    waitsFor(waitForInlineEditor, 500);
+                    runs(logPerf);
+                }
+            });
+            
+        });
     });
 });

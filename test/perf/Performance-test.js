@@ -36,13 +36,15 @@ define(function (require, exports, module) {
         PerfUtils,                  // loaded from brackets.test
         JSLintUtils,                // loaded from brackets.test
         DocumentManager,            // loaded from brackets.test
-        SpecRunnerUtils             = require("../spec/SpecRunnerUtils.js"),
-        PerformanceReporter         = require("../perf/PerformanceReporter.js");
+        SpecRunnerUtils             = require("spec/SpecRunnerUtils"),
+        PerformanceReporter         = require("perf/PerformanceReporter");
 
     var jsLintPrevSetting;
 
     describe("Performance Tests", function () {
-
+        
+        this.performance = true;
+        
         // Note: this tests assumes that the "brackets-scenario" repo is in the same folder
         //       as the "brackets-app"
         //
@@ -57,14 +59,16 @@ define(function (require, exports, module) {
             runs(function () {
                 CommandManager.execute(Commands.FILE_OPEN, {fullPath: testPath + path})
                     .done(function () {
-                        PerformanceReporter.logTestWindow(PerfUtils.OPEN_FILE, "Open file - " + path);
-                        PerformanceReporter.clearTestWindow();
-                        
                         didOpen = true;
                     })
                     .fail(function () { gotError = true; });
             });
             waitsFor(function () { return didOpen && !gotError; }, 1000);
+            
+            runs(function () {
+                PerformanceReporter.logTestWindow(PerfUtils.OPEN_FILE, path);
+                PerformanceReporter.clearTestWindow();
+            });
         }
         
         beforeEach(function () {
