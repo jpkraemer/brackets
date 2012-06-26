@@ -597,7 +597,14 @@ define(function (require, exports, module) {
 
         return menu;
     }
-    
+
+    /**
+     * Closes all menus that are open
+     */
+    function closeAll() {
+        $(".dropdown").removeClass("open");
+    }
+
     /**
      * @constructor
      * @extends {Menu}
@@ -665,7 +672,7 @@ define(function (require, exports, module) {
         $(this).triggerHandler("beforeContextMenuOpen");
 
         // close all other dropdowns
-        $(".dropdown").removeClass("open");
+        closeAll();
 
         // adjust positioning so menu is not clipped off bottom or right
         var bottomOverhang = posTop + 25 + $menuWindow.height() - $window.height();
@@ -770,17 +777,21 @@ define(function (require, exports, module) {
         menu.addMenuItem(Commands.EDIT_FIND,                "Ctrl-F");
         menu.addMenuItem(Commands.EDIT_FIND_IN_FILES,       "Ctrl-Shift-F");
         menu.addMenuItem(Commands.EDIT_FIND_NEXT,           [{key: "F3",     platform: "win"},
-                                                             {key: "Ctrl-G", platform: "mac"}]);
+                                                             {key: "Cmd-G", platform: "mac"}]);
 
         menu.addMenuItem(Commands.EDIT_FIND_PREVIOUS,       [{key: "Shift-F3",      platform: "win"},
-                                                             {key:  "Ctrl-Shift-G", platform: "mac"}]);
+                                                             {key:  "Cmd-Shift-G", platform: "mac"}]);
 
         menu.addMenuDivider();
         menu.addMenuItem(Commands.EDIT_REPLACE,             [{key: "Ctrl-H",     platform: "win"},
-                                                             {key: "Ctrl-Alt-F", platform: "mac"}]);
+                                                             {key: "Cmd-Alt-F", platform: "mac"}]);
         menu.addMenuDivider();
-        menu.addMenuItem(Commands.EDIT_DUPLICATE,           "Ctrl-D");
-        menu.addMenuItem(Commands.EDIT_LINE_COMMENT,        "Ctrl-/");
+        menu.addMenuItem(Commands.EDIT_INDENT,          [{key: "Indent", displayKey: "Tab"}]);
+        menu.addMenuItem(Commands.EDIT_UNINDENT,        [{key: "Unindent", displayKey: "Shift-Tab"}]);
+        menu.addMenuItem(Commands.EDIT_DUPLICATE,       "Ctrl-D");
+        menu.addMenuItem(Commands.EDIT_LINE_COMMENT,    "Ctrl-/");
+        menu.addMenuDivider();
+        menu.addMenuItem(Commands.TOGGLE_USE_TAB_CHARS);
 
         /*
          * View menu
@@ -791,6 +802,8 @@ define(function (require, exports, module) {
         menu.addMenuItem(Commands.VIEW_INCREASE_FONT_SIZE, [{key: "Ctrl-=", displayKey: "Ctrl-+"}]);
         menu.addMenuItem(Commands.VIEW_DECREASE_FONT_SIZE, [{key: "Ctrl--", displayKey: "Ctrl-\u2212"}]);
         menu.addMenuItem(Commands.VIEW_RESTORE_FONT_SIZE, "Ctrl-0");
+        menu.addMenuDivider();
+        menu.addMenuItem(Commands.TOGGLE_JSLINT);
 
         /*
          * Navigate menu
@@ -798,11 +811,11 @@ define(function (require, exports, module) {
         menu = addMenu(Strings.NAVIGATE_MENU, AppMenuBar.NAVIGATE_MENU);
         menu.addMenuItem(Commands.NAVIGATE_QUICK_OPEN,      "Ctrl-Shift-O");
         menu.addMenuItem(Commands.NAVIGATE_GOTO_LINE,       [{key: "Ctrl-G", platform: "win"},
-                                                             {key: "Ctrl-L", platform: "mac"}]);
+                                                             {key: "Cmd-L", platform: "mac"}]);
 
         menu.addMenuItem(Commands.NAVIGATE_GOTO_DEFINITION, "Ctrl-T");
         menu.addMenuDivider();
-        menu.addMenuItem(Commands.SHOW_INLINE_EDITOR,       "Ctrl-E");
+        menu.addMenuItem(Commands.TOGGLE_QUICK_EDIT,        "Ctrl-E");
         menu.addMenuItem(Commands.QUICK_EDIT_PREV_MATCH,    {key: "Alt-Up", displayKey: "Alt-\u2191"});
         menu.addMenuItem(Commands.QUICK_EDIT_NEXT_MATCH,    {key: "Alt-Down", displayKey: "Alt-\u2193"});
 
@@ -810,29 +823,24 @@ define(function (require, exports, module) {
          * Debug menu
          */
         menu = addMenu(Strings.DEBUG_MENU, AppMenuBar.DEBUG_MENU);
-        menu.addMenuItem(Commands.DEBUG_REFRESH_WINDOW, [{key: "F5",     platform: "win"},
-                                                         {key: "Ctrl-R", platform:  "mac"}]);
-
         menu.addMenuItem(Commands.DEBUG_SHOW_DEVELOPER_TOOLS, [{key: "F12",        platform: "win"},
-                                                               {key: "Ctrl-Opt-I", platform: "mac"}]);
-        menu.addMenuItem(Commands.DEBUG_RUN_UNIT_TESTS);
-        menu.addMenuItem(Commands.DEBUG_JSLINT);
-        menu.addMenuItem(Commands.DEBUG_SHOW_PERF_DATA);
-		
-        menu.addMenuDivider();
-        menu.addMenuItem(Commands.DEBUG_EXPERIMENTAL);
+                                                               {key: "Cmd-Opt-I", platform: "mac"}]);
+        menu.addMenuItem(Commands.DEBUG_REFRESH_WINDOW, [{key: "F5",     platform: "win"},
+                                                         {key: "Cmd-R", platform:  "mac"}]);
         menu.addMenuItem(Commands.DEBUG_NEW_BRACKETS_WINDOW);
-        menu.addMenuItem(Commands.DEBUG_CLOSE_ALL_LIVE_BROWSERS);
-        menu.addMenuItem(Commands.DEBUG_USE_TAB_CHARS);
+        menu.addMenuDivider();
+        menu.addMenuItem(Commands.DEBUG_RUN_UNIT_TESTS);
+        menu.addMenuItem(Commands.DEBUG_SHOW_PERF_DATA);
 
 
         /*
          * Context Menus
          */
         var project_cmenu = registerContextMenu(ContextMenuIds.PROJECT_MENU);
+        project_cmenu.addMenuItem(Commands.FILE_NEW);
 
         var editor_cmenu = registerContextMenu(ContextMenuIds.EDITOR_MENU);
-        editor_cmenu.addMenuItem(Commands.SHOW_INLINE_EDITOR);
+        editor_cmenu.addMenuItem(Commands.TOGGLE_QUICK_EDIT);
         editor_cmenu.addMenuItem(Commands.EDIT_SELECT_ALL);
 
         /**
@@ -857,7 +865,10 @@ define(function (require, exports, module) {
                     editor.selectWordAt(editor.getCursorPos());
                     
                     // Prevent menu from overlapping text by moving it down a little
-                    e.pageY += 6;
+                    // Temporarily backout this change for now to help mitigate issue #1111,
+                    // which only happens if mouse is not over context menu. Better fix
+                    // requires change to bootstrap, which is too risky for now.
+                    //e.pageY += 6;
                 }
                 
                 editor_cmenu.open(e);
@@ -890,7 +901,7 @@ define(function (require, exports, module) {
         // close all dropdowns on ESC
         $(window.document).on("keydown", function (e) {
             if (e.keyCode === 27) {
-                $(".dropdown").removeClass("open");
+                closeAll();
             }
         });
 
@@ -920,8 +931,9 @@ define(function (require, exports, module) {
     exports.getMenuItem = getMenuItem;
     exports.getContextMenu = getContextMenu;
     exports.addMenu = addMenu;
+    exports.registerContextMenu = registerContextMenu;
+    exports.closeAll = closeAll;
     exports.Menu = Menu;
     exports.MenuItem = MenuItem;
-    exports.registerContextMenu = registerContextMenu;
     exports.ContextMenu = ContextMenu;
 });

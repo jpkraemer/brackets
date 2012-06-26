@@ -23,7 +23,13 @@
 
 
 /*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
-/*global define, brackets: true, $, PathUtils, window, navigator */
+/*global require, define, brackets: true, $, PathUtils, window, navigator */
+
+require.config({
+    paths: {
+        "text" : "thirdparty/text"
+    }
+});
 
 /**
  * brackets is the root of the Brackets codebase. This file pulls in all other modules as
@@ -52,6 +58,7 @@ define(function (require, exports, module) {
         DocumentManager         = require("document/DocumentManager"),
         EditorManager           = require("editor/EditorManager"),
         CSSInlineEditor         = require("editor/CSSInlineEditor"),
+        JSUtils                 = require("language/JSUtils"),
         WorkingSetView          = require("project/WorkingSetView"),
         DocumentCommandHandlers = require("document/DocumentCommandHandlers"),
         FileViewController      = require("project/FileViewController"),
@@ -194,6 +201,7 @@ define(function (require, exports, module) {
             WorkingSetView          : WorkingSetView,
             JSLintUtils             : JSLintUtils,
             PerfUtils               : PerfUtils,
+            JSUtils                 : JSUtils,
             CommandManager          : require("command/CommandManager"),
             FileSyncManager         : FileSyncManager,
             FileIndexManager        : FileIndexManager,
@@ -203,6 +211,7 @@ define(function (require, exports, module) {
             LiveDevelopment         : require("LiveDevelopment/LiveDevelopment"),
             Inspector               : require("LiveDevelopment/Inspector/Inspector"),
             NativeApp               : require("utils/NativeApp"),
+            ExtensionUtils          : require("utils/ExtensionUtils"),
             doneLoading             : false
         };
 

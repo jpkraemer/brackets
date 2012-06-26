@@ -32,10 +32,8 @@ define(function (require, exports, module) {
     var MultiRangeInlineEditor  = brackets.getModule("editor/MultiRangeInlineEditor").MultiRangeInlineEditor,
         FileIndexManager        = brackets.getModule("project/FileIndexManager"),
         EditorManager           = brackets.getModule("editor/EditorManager"),
+        JSUtils                 = brackets.getModule("language/JSUtils"),
         PerfUtils               = brackets.getModule("utils/PerfUtils");
-    
-    // Local modules
-    var JSUtils         = require("JSUtils");
     
     /**
      * Return the token string that is at the specified position.
@@ -166,6 +164,7 @@ define(function (require, exports, module) {
     PerfUtils.createPerfMeasurement("JAVASCRIPT_FIND_FUNCTION", "JavaScript Find Function");
     
     // for unit tests only
-    exports._createInlineEditor = _createInlineEditor;
-    exports._findInProject      = _findInProject;
+    exports.javaScriptFunctionProvider  = javaScriptFunctionProvider;
+    exports._createInlineEditor         = _createInlineEditor;
+    exports._findInProject              = _findInProject;
 });

@@ -64,8 +64,9 @@ define(function (require, exports, module) {
     var EditorManager   = require("editor/EditorManager"),
         Commands        = require("command/Commands"),
         CommandManager  = require("command/CommandManager"),
+        Menus           = require("command/Menus"),
         PerfUtils       = require("utils/PerfUtils"),
-        Strings          = require("strings"),
+        Strings         = require("strings"),
         TextRange       = require("document/TextRange").TextRange,
         ViewUtils       = require("utils/ViewUtils");
     
@@ -359,6 +360,7 @@ define(function (require, exports, module) {
             indentWithTabs: _useTabChar,
             lineNumbers: true,
             matchBrackets: true,
+            dragDrop: false,    // work around issue #1123
             extraKeys: codeMirrorKeyMap
         });
         
@@ -603,6 +605,9 @@ define(function (require, exports, module) {
             $(self).triggerHandler("cursorActivity", [self]);
         });
         this._codeMirror.setOption("onScroll", function (instance) {
+            // close all dropdowns on scroll
+            Menus.closeAll();
+
             $(self).triggerHandler("scroll", [self]);
         
             // notify all inline widgets of a position change

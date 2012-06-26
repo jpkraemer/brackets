@@ -31,12 +31,12 @@ define(function (require, exports, module) {
     'use strict';
     
     // Load brackets modules
-    var Async                   = brackets.getModule("utils/Async"),
-        DocumentManager         = brackets.getModule("document/DocumentManager"),
-        ChangedDocumentTracker  = brackets.getModule("document/ChangedDocumentTracker"),
-        NativeFileSystem        = brackets.getModule("file/NativeFileSystem").NativeFileSystem,
-        PerfUtils               = brackets.getModule("utils/PerfUtils"),
-        StringUtils             = brackets.getModule("utils/StringUtils");
+    var Async                   = require("utils/Async"),
+        DocumentManager         = require("document/DocumentManager"),
+        ChangedDocumentTracker  = require("document/ChangedDocumentTracker"),
+        NativeFileSystem        = require("file/NativeFileSystem").NativeFileSystem,
+        PerfUtils               = require("utils/PerfUtils"),
+        StringUtils             = require("utils/StringUtils");
 
     /**
      * Tracks dirty documents between invocations of findMatchingFunctions.
@@ -53,7 +53,7 @@ define(function (require, exports, module) {
      * RegExp matches any sequence of characters that is not whitespace.
      * @type {RegExp}
      */
-    var _functionRegExp = /(function\b\s+([^\s]+)(\([^)]*\)))|(([^\s\.]+)\s*[:=]\s*function\s*(\([^)]*\)))/g;
+    var _functionRegExp = /(function\s+([$_A-Za-z\u007F-\uFFFF][$_A-Za-z0-9\u007F-\uFFFF]*)\s*(\([^)]*\)))|(([$_A-Za-z\u007F-\uFFFF][$_A-Za-z0-9\u007F-\uFFFF]*)\s*[:=]\s*function\s*(\([^)]*\)))/g;
     
     /**
      * @private
@@ -396,7 +396,7 @@ define(function (require, exports, module) {
      * @return {Array.<{offset:number, functionName:string}>}
      *      Array of objects containing the start offset for each matched function name.
      */
-    function _findAllMatchingFunctionsInText(text, functionName) {
+    function findAllMatchingFunctionsInText(text, functionName) {
         var allFunctions = _findAllFunctionsInText(text);
         var result = [];
         var lines = text.split("\n");
@@ -421,7 +421,7 @@ define(function (require, exports, module) {
     PerfUtils.createPerfMeasurement("JSUTILS_REGEXP", "RegExp search for all functions");
     PerfUtils.createPerfMeasurement("JSUTILS_END_OFFSET", "Find end offset for a single matched function");
 
-    exports._findAllMatchingFunctionsInText = _findAllMatchingFunctionsInText; // For testing only
+    exports.findAllMatchingFunctionsInText = findAllMatchingFunctionsInText;
     exports._getFunctionEndOffset = _getFunctionEndOffset; // For testing only
     exports.findMatchingFunctions = findMatchingFunctions;
 });
