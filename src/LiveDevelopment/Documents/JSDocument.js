@@ -54,6 +54,7 @@ define(function JSDocumentModule(require, exports, module) {
      * @param {Document} the source document
      */
     var JSDocument = function JSDocument(doc, editor) {
+        if (!editor) return;
         this.doc = doc;
         this.editor = editor;
         this.script = ScriptAgent.scriptForURL(this.doc.url);
@@ -68,6 +69,7 @@ define(function JSDocumentModule(require, exports, module) {
 
     /** Close the document */
     JSDocument.prototype.close = function close() {
+        if (!this.editor) return;
         Inspector.off("HighlightAgent.highlight", this.onHighlight);
         $(this.editor).off("change", this.onChange);
         $(this.editor).off("cursorActivity", this.onCursorActivity);
