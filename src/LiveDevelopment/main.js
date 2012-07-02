@@ -128,6 +128,7 @@ define(function main(require, exports, module) {
             // See the comments at the top of LiveDevelopment.js for details on the 
             // various status codes.
             _setLabel(_$btnGoLive, null, _statusStyle[status + 1], _statusTooltip[status + 1]);
+            window.sessionStorage.setItem("live.enabled", status === 3);
         });
         
         // Initialize tooltip for 'not connected' state
@@ -153,6 +154,15 @@ define(function main(require, exports, module) {
         }
     }
 
+    /** Setup autostarting of the live development connection */
+    function _setupAutoStart() {
+        var $DocumentManager = $(DocumentManager);
+        $DocumentManager.on("currentDocumentChange", function goLive() {
+            _handleGoLiveCommand();
+            $DocumentManager.off("currentDocumentChange", goLive);
+        });
+    }
+
     /** Setup window references to useful LiveDevelopment modules */
     function _setupDebugHelpers() {
         window.ld = LiveDevelopment;
@@ -169,6 +179,9 @@ define(function main(require, exports, module) {
         /* _setupHighlightButton(); FUTURE - Highlight button */
         if (config.debug) {
             _setupDebugHelpers();
+        }
+        if (window.sessionStorage.getItem("live.enabled") === "true") {
+            _setupAutoStart();
         }
     }
     window.setTimeout(init);
