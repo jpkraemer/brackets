@@ -2,7 +2,28 @@
     "version": { "major": "1", "minor": "0" },
     "domains": [{
         "domain": "V8",
-        "types": [],
+        "types": [
+            {
+                "id": "Variable",
+                "type": "object",
+                "properties": [
+                    { "name": "name", "type": "string" },
+                    { "name": "value", "type": "string" }
+                ],
+                "description": "Argument returned from frame command"
+            },
+            {
+                "id": "Scope",
+                "type": "object",
+                "properties": [
+                    { "name": "index", "type": "number", "description": "index of this scope in the scope chain. Index 0 is the top scope and the global scope will always have the highest index for a frame" },
+                    { "name": "frameIndex", "type": "number", "description": "index of the frame" }, 
+                    { "name": "type", "type": "number", "description": "0: Global; 1: Local; 2: With; 3: Closure; 4: Catch" },
+                    { "name": "object", "type": "object", "description": "the scope object defining the content of the scope. For local and closure scopes this is transient objects, which has a negative handle value" }
+                ],
+                "description": "Scope format used in scope and frame commands"
+            }
+        ],
         "commands": [
             {
                 "name": "scripts",
@@ -28,6 +49,51 @@
                     { "name": "evalFromScript", "type": "number", "description": "if compilationType is 1 this is the script from where eval was called" },
                     { "name": "evalFromLocation", "type": "object", "description": "location in the script from where eval was called" }
                 ]
+            },
+            {
+                "name": "frame",
+                "parameters": [
+                    { "name": "number", "type": "number", "description": "frame number" }
+                ],
+                "description": "The request frame selects a new selected frame and returns information for that. If no frame number is specified the selected frame is returned.",
+                "returns": [
+                    { "name": "index", "type": "number", "description": "frame number" },
+                    { "name": "receiver", "type": "string", "description": "frame receiver" },
+                    { "name": "func", "type": "string", "description": "function involved" },
+                    { "name": "script", "type": "string", "description": "script for the function" },
+                    { "name": "constructCall", "type": "boolean", "description": "boolean indicating whether the function was called as constructor" },
+                    { "name": "debuggerFrame", "type": "boolean", "description": "boolean indicating whether this is an internal debugger frame" },
+                    { "name": "arguments", "type": "array", "description": "the array contains all the arguments", "items": { "$ref": "Variable" }},
+                    { "name": "locals", "type": "array", "description": "the array contains all the locals", "items": { "$ref": "Variable" }},
+                    { "name": "position", "type": "number", "description": "source position" },
+                    { "name": "line", "type": "number", "description": "source line" },
+                    { "name": "column", "type": "number", "description": "column number" },
+                    { "name": "sourceLineText", "type": "string", "description": "text for current source line" },
+                    { "name": "scopes", "type": "array", "description": "array of scopes" }
+                ]
+            }, 
+            {
+                "name": "lookup",
+                "parameters": [
+                    { "name" : "handles", "type": "array", "description": "array of handles", "items": { "$ref": "Variable" } },
+                    { "name" : "includeSource", "type": "boolean", "description": "boolean indicating whether the source will be included when script objects are returned" }
+                ], 
+                "description": "The request lookup is used to lookup objects based on their handle. The individual array elements of the body of the result is as described in response object serialization below.",
+                "returns": { "type": "array", "description": "array of serialized objects indexed using their handle" }
+            },
+            {
+                "name": "restart",
+                "parameters": [ ], 
+                "description": "If the v8 bridge runs in managed mode, restarts the node process. Otherwise does nothing.",
+                "returns": { }
+            },
+            {
+                "name": "setFile",
+                "parameters": [ 
+                    { "name" : "filePath", "type": "string", "description": "The full path to the file to debug." }
+                ], 
+                "description": "If the v8 bridge runs in managed mode, restarts the node process. Otherwise does nothing.",
+                "returns": { }
             }
         ],
         "events": [
